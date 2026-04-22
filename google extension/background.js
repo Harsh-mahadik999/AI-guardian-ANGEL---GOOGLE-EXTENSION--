@@ -227,6 +227,24 @@ Return EXACTLY:
   }
 }
 
+// ─── Auto-scan deduplication cache ─────────────────────────
+const recentScans = new Map(); // url -> timestamp
+const SCAN_COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes
+
+function isRecentlyScanned(url) {
+  const last = recentScans.get(url);
+  return last && (Date.now() - last) < SCAN_COOLDOWN_MS;
+}
+
+function markScanned(url) {
+  recentScans.set(url, Date.now());
+  // Prevent unbounded growth
+  if (recentScans.size > 100) {
+    const oldest = [...recentScans.entries()].sort((a, b) => a[1] - b[1])[0][0];
+    recentScans.delete(oldest);
+  }
+}
+
 // ─── Domain Reputation Quick Check ─────────────────────────
 const KNOWN_SAFE = new Set([
   "google.com", "youtube.com", "github.com", "wikipedia.org", "stackoverflow.com",
@@ -335,25 +353,46 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           return currentScan;
 
         case "AUTO_SCAN_PAGE":
-          console.log(`[Guardian] 🔄 Auto-scanning page:`, msg.title);
+          console.log(`[Guardian] 🔄 Auto-scan requested for:`, msg.title);
           try {
-            // Analyze based on page type
+            // Read user settings before doing anything
+            const settings = await new Promise(resolve => {
+              chrome.storage.sync.get(['autoScan', 'autoPrivacy', 'paymentVerify'], resolve);
+            });
+
+            if (!settings.autoScan) {
+              console.log(`[Guardian] ⏭️ Auto-scan is disabled by user — skipping`);
+              return { skipped: true, reason: "autoScan disabled" };
+            }
+
+            // Deduplication: skip if this URL was scanned recently
+            if (isRecentlyScanned(msg.url)) {
+              console.log(`[Guardian] ⏭️ URL scanned recently — skipping:`, msg.url);
+              const cached = await new Promise(resolve => {
+                chrome.storage.local.get(['currentPageScan'], r => resolve(r.currentPageScan || null));
+              });
+              return cached || { skipped: true, reason: "recently scanned" };
+            }
+
+            markScanned(msg.url);
+
+            // Analyze based on page type and user settings
             let privacy = null, payment = null;
-            
-            if (msg.isPrivacy) {
+
+            if (msg.isPrivacy && settings.autoPrivacy) {
               privacy = await analyzePrivacyPolicy(msg.text, msg.url, msg.title);
               if (privacy.riskScore > 60) await incrementStat("threatsFound");
             }
-            
-            if (msg.isPayment) {
+
+            if (msg.isPayment && settings.paymentVerify) {
               payment = await verifyPaymentGateway(msg.url, msg.text);
               if (payment.score > 50) await incrementStat("threatsFound");
             }
-            
-            // Always do general scan
+
+            // General scan (always runs when autoScan is on)
             const general = await scanPage(msg.url, msg.text, msg.title);
             await incrementStat("pagesScanned");
-            
+
             const summary = {
               url: msg.url,
               title: msg.title,
@@ -365,12 +404,12 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
               isPayment: msg.isPayment,
               overallScore: privacy ? (100 - privacy.riskScore) : (general?.safetyScore || 50)
             };
-            
+
             // Store current page scan
             await new Promise(resolve => {
               chrome.storage.local.set({ currentPageScan: summary }, resolve);
             });
-            
+
             console.log(`[Guardian] ✅ Auto-scan complete:`, summary);
             return summary;
           } catch (err) {

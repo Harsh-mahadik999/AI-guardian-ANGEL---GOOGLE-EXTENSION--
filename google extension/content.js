@@ -326,9 +326,18 @@
         // Gmail
         initGmailScanner();
 
-        // AUTO-SCAN: Always scan every page for the popup dashboard
+        // AUTO-SCAN: Only scan if user has enabled it in settings
         setTimeout(async () => {
             try {
+                // Check user preference before firing any API call
+                const settings = await new Promise(resolve => {
+                    chrome.storage.sync.get(['autoScan'], resolve);
+                });
+                if (!settings.autoScan) {
+                    console.log('[Guardian] ⏭️ Auto-scan disabled — skipping');
+                    return;
+                }
+
                 const pageText = getPageText(8000);
                 const url = location.href;
                 const title = document.title;
