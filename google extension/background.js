@@ -2,7 +2,7 @@
 //  Guardian AI – Background Service Worker  (Manifest V3)
 //  AI Engine: OpenRouter or OpenAI Compatible
 // ============================================================
-
+import { detectLanguage } from "./utils/languageDetector.js";
 const VERSION = "2.0.0";
 const API_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions';
 const MODEL = 'gemini-2.0-flash';
@@ -85,11 +85,16 @@ async function callAI(systemPrompt, userContent, maxTokens = 800) {
 
 // ─── Privacy Policy Analyzer ───────────────────────────────
 async function analyzePrivacyPolicy(text, url, title) {
+  const lang = detectLanguage(text) || "en";
   const SYSTEM = `You are Guardian AI, a friendly but sharp privacy analyst. 
 Your job: analyze privacy policies and terms of service with empathy and clarity.
 Always respond with a valid JSON object — no markdown, no extra text.`;
 
-  const USER = `Analyze this privacy policy from "${title}" (${url}).
+  const USER = `
+The following content is written in ${lang}.
+Please analyze it accordingly.
+
+Analyze this privacy policy from "${title}" (${url}).
 
 Text (truncated): ${text.slice(0, 4000)}
 
@@ -122,10 +127,15 @@ Return EXACTLY this JSON:
 
 // ─── Payment Gateway Verifier ──────────────────────────────
 async function verifyPaymentGateway(url, pageText) {
+  const lang = detectLanguage(pageText) || "en";
   const SYSTEM = `You are Guardian AI, a cybersecurity expert specializing in payment fraud. 
 Be conversational, human, and protective. Return only valid JSON.`;
 
-  const USER = `Analyze this checkout/payment page for legitimacy.
+ const USER = `
+The following content is written in ${lang}.
+Please analyze it accordingly.
+
+Analyze this checkout/payment page for legitimacy.
 URL: ${url}
 Page content snippet: ${pageText.slice(0, 2000)}
 
@@ -156,10 +166,15 @@ Return EXACTLY:
 
 // ─── Email Scam Detector ────────────────────────────────────
 async function analyzeEmail(subject, sender, body) {
+  const lang = detectLanguage(body) || "en";
   const SYSTEM = `You are Guardian AI, an email security expert. 
 You protect users from phishing and scams in a warm, calm tone. Return only valid JSON.`;
+  const USER = `
+The following content is written in ${lang}.
+Please analyze it accordingly.
 
-  const USER = `Analyze this email for scam/phishing signals.
+Analyze this email for scam/phishing signals.
+
 Subject: ${subject}
 From: ${sender}
 Body (first 2000 chars): ${body.slice(0, 2000)}
@@ -191,10 +206,14 @@ Return EXACTLY:
 
 // ─── General Page Scanner ──────────────────────────────────
 async function scanPage(url, text, title) {
+  const lang = detectLanguage(text) || "en";
   const SYSTEM = `You are Guardian AI, a friendly website security scanner. 
 Speak like a knowledgeable friend, not a robot. Return valid JSON only.`;
+  const USER = `
+The following content is written in ${lang}.
+Please analyze it accordingly.
 
-  const USER = `Scan this webpage for security and privacy concerns.
+Scan this webpage for security and privacy concerns.
 Page: "${title}" at ${url}
 Content (first 3000 chars): ${text.slice(0, 3000)}
 
