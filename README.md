@@ -1,4 +1,10 @@
 # 🛡️ Guardian AI ANGEL
+### loook here too i am having the end sem coming in this upcoming monday so i wont be online for a while you all do the work okay if i got the mean 
+### mean time to see the issue and review all okay so do the issue and all i will come online for while i will try my best to give the marks and give the 
+### best riview to all okay 
+### thanks for undersanting 
+### full online tine will come to att after exam mean wednesday okay maybe thursday night okay 
+### thanks for understanding 
 
 ### Intelligent Privacy & Security Chrome Extension for AI + Web Browsing
 
