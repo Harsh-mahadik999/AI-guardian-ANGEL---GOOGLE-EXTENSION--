@@ -1,83 +1,86 @@
 {
-    "manifest_version": 3,
-    "name": "Guardian AI – Security & Privacy Shield",
-    "version": "2.0.0",
-    "description": "AI-powered security assistant: ad blocker, privacy analyzer, consent manager, payment verifier & email scam detector.",
-    "permissions": [
-        "storage",
-        "declarativeNetRequest",
-        "declarativeNetRequestWithHostAccess",
-        "scripting",
-        "tabs",
-        "activeTab",
-        "alarms",
-        "notifications",
-        "webNavigation",
-        "cookies"
-    ],
-    "host_permissions": [
-        "<all_urls>"
-    ],
-    "background": {
-        "service_worker": "background.js"
-    },
-    "action": {
-        "default_popup": "popup_simple.html",
-        "default_title": "Guardian AI Shield",
-        "default_icon": {
-            "16": "icons/icon16.png",
-            "48": "icons/icon48.png",
-            "128": "icons/icon128.png"
-        }
-    },
-    "content_scripts": [
-        {
-            "matches": [
-                "<all_urls>"
-            ],
-            "js": [
-                "content.js"
-            ],
-            "css": [
-                "content.css"
-            ],
-            "run_at": "document_idle",
-            "all_frames": false
-        }
-    ],
-    "declarative_net_request": {
-        "rule_resources": [
-            {
-                "id": "block_ads",
-                "enabled": true,
-                "path": "rules/ads.json"
-            },
-            {
-                "id": "block_trackers",
-                "enabled": true,
-                "path": "rules/trackers.json"
-            },
-            {
-                "id": "block_malware",
-                "enabled": true,
-                "path": "rules/malware.json"
-            }
-        ]
-    },
-    "icons": {
-        "16": "icons/icon16.png",
-        "48": "icons/icon48.png",
-        "128": "icons/icon128.png"
-    },
-    "web_accessible_resources": [
-        {
-            "resources": [
-                "icons/*.png",
-                "icons/*.svg"
-            ],
-            "matches": [
-                "<all_urls>"
-            ]
-        }
+  "manifest_version": 3,
+  "name": "Guardian AI – Security & Privacy Shield",
+  "version": "2.0.0",
+  "description": "AI-powered security assistant: privacy analyzer, consent manager, and scam detection.",
+
+  "permissions": [
+    "storage",
+    "declarativeNetRequest",
+    "scripting",
+    "activeTab",
+    "alarms",
+    "notifications"
+  ],
+
+  "host_permissions": [
+    "https://*/*"
+  ],
+
+  "background": {
+    "service_worker": "background.js"
+  },
+
+  "action": {
+    "default_popup": "popup_simple.html",
+    "default_title": "Guardian AI Shield",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "css": [
+        "content.css"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+
+  "declarative_net_request": {
+    "rule_resources": [
+      {
+        "id": "block_ads",
+        "enabled": true,
+        "path": "rules/ads.json"
+      },
+      {
+        "id": "block_trackers",
+        "enabled": true,
+        "path": "rules/trackers.json"
+      },
+      {
+        "id": "block_malware",
+        "enabled": true,
+        "path": "rules/malware.json"
+      }
     ]
+  },
+
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "icons/*.png",
+        "icons/*.svg"
+      ],
+      "matches": [
+        "https://*/*"
+      ]
+    }
+  ]
 }
