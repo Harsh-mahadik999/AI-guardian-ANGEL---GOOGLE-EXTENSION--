@@ -70,6 +70,102 @@ async function loadAll() {
 }
 
 // ─── Stats ────────────────────────────────────────────────
+let weeklyChartInstance = null;
+let actionsChartInstance = null;
+
+function renderCharts(s) {
+  if (typeof Chart === 'undefined') return;
+
+  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const weeklyData = s.weeklyData || [0,0,0,0,0,0,0];
+
+  if (weeklyChartInstance) {
+    weeklyChartInstance.data.datasets[0].data = weeklyData;
+    weeklyChartInstance.update();
+  } else {
+    const ctxWeekly = document.getElementById('weeklyChart');
+    if (ctxWeekly) {
+      weeklyChartInstance = new Chart(ctxWeekly, {
+        type: 'line',
+        data: {
+          labels: days,
+          datasets: [{
+            label: 'Threats Blocked',
+            data: weeklyData,
+            borderColor: '#8b5cf6',
+            backgroundColor: 'rgba(139,92,246,0.2)',
+            borderWidth: 2,
+            fill: true,
+            tension: 0.3,
+            pointBackgroundColor: '#ef4444',
+            pointBorderColor: '#fff',
+            pointRadius: 4
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            y: { beginAtZero: true, grid: { color: '#1e1e3a' }, ticks: { color: '#888', precision: 0 } },
+            x: { grid: { display: false }, ticks: { color: '#888' } }
+          }
+        }
+      });
+    }
+  }
+
+  const pieData = [
+    s.adsBlocked || 0,
+    s.trackersBlocked || 0,
+    s.consentsRejected || 0,
+    s.threatsFound || 0
+  ];
+
+  // If all zeros, show placeholder data so chart is visible
+  const hasData = pieData.some(v => v > 0);
+  const displayData = hasData ? pieData : [1, 1, 1, 1];
+  const displayColors = hasData
+    ? ['#10b981', '#3b82f6', '#f59e0b', '#ef4444']
+    : ['#1e1e3a', '#1e1e3a', '#1e1e3a', '#1e1e3a'];
+
+  if (actionsChartInstance) {
+    actionsChartInstance.data.datasets[0].data = displayData;
+    actionsChartInstance.data.datasets[0].backgroundColor = displayColors;
+    actionsChartInstance.update();
+  } else {
+    const ctxPie = document.getElementById('actionsPieChart');
+    if (ctxPie) {
+      actionsChartInstance = new Chart(ctxPie, {
+        type: 'doughnut',
+        data: {
+          labels: ['Ads', 'Trackers', 'Consents', 'Threats'],
+          datasets: [{
+            data: displayData,
+            backgroundColor: displayColors,
+            borderWidth: 2,
+            borderColor: '#12122a',
+            hoverOffset: 4
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: false,
+          plugins: {
+            legend: {
+              position: 'right',
+              labels: { color: '#bbb', font: { size: 11 }, boxWidth: 12, padding: 10 }
+            }
+          },
+          cutout: '65%'
+        }
+      });
+    }
+  }
+}
+
 function loadStats() {
   chrome.runtime.sendMessage({ type: 'GET_STATS' }, s => {
     if (!s) return;
@@ -77,6 +173,7 @@ function loadStats() {
     $('sTrack').textContent = s.trackersBlocked || 0;
     $('sThreats').textContent = s.threatsFound || 0;
     $('sPages').textContent = s.pagesScanned || 0;
+    renderCharts(s);
   });
 }
 
@@ -87,11 +184,10 @@ function resetStats() {
 
 // ─── Current Page Summary ─────────────────────────────────
 function loadSummary() {
+  // Show idle state immediately, don't show loading spinner
+  $('pageSummary').innerHTML = `<div style="color:#666;font-size:12px;">No scan yet. Click <b>"Scan This Page Now"</b> below or wait for auto-scan.</div>`;
   chrome.runtime.sendMessage({ type: 'GET_CURRENT_SCAN' }, scan => {
-    if (!scan || scan.error) {
-      $('pageSummary').innerHTML = `<div style="color:#666;font-size:12px;">No scan yet. Click <b>"Scan This Page Now"</b> below or wait for auto-scan.</div>`;
-      return;
-    }
+    if (chrome.runtime.lastError || !scan || scan.error) return;
     renderSummary(scan);
   });
 }

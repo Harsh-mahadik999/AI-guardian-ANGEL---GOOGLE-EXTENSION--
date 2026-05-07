@@ -75,10 +75,51 @@
     let consentHandled = false;
 
     async function handleCookieConsent() {
-        // Disabled to avoid errors - users can manage cookies manually
         if (consentHandled) return;
-        consentHandled = true;
-        // Cookie handling disabled in this version
+        
+        let bannerFound = null;
+        for (const selector of CONSENT_SELECTORS) {
+            try {
+                const elements = document.querySelectorAll(selector);
+                for (const el of elements) {
+                    const rect = el.getBoundingClientRect();
+                    if (rect.width > 10 && rect.height > 10 && window.getComputedStyle(el).display !== 'none' && window.getComputedStyle(el).visibility !== 'hidden') {
+                        // Some basic heuristics to ensure it's likely a banner
+                        const text = el.innerText?.toLowerCase() || '';
+                        if (text.includes('cookie') || text.includes('consent') || text.includes('privacy')) {
+                            bannerFound = el;
+                            break;
+                        }
+                    }
+                }
+            } catch (e) { /* Ignore invalid selectors */ }
+            if (bannerFound) break;
+        }
+
+        if (!bannerFound) return;
+
+        const buttons = bannerFound.querySelectorAll('button, a, [role="button"]');
+        let targetBtn = null;
+
+        for (const btn of buttons) {
+            const text = (btn.innerText || btn.textContent || btn.value || '').trim();
+            if (REJECT_PATTERNS.some(rx => rx.test(text))) {
+                targetBtn = btn;
+                break;
+            }
+        }
+
+        if (targetBtn) {
+            consentHandled = true;
+            console.log('[Guardian] 🍪 Auto-rejecting cookie consent...');
+            try {
+                targetBtn.click();
+                showToast('🍪 Auto-rejected non-essential cookies', 'success', 3000);
+                send({ type: "CONSENT_REJECTED", count: 1 }).catch(() => {});
+            } catch (e) {
+                console.error('[Guardian] Error clicking cookie reject button:', e);
+            }
+        }
     }
 
     // ─── 4. Floating Toast Notification ────────────────────────
