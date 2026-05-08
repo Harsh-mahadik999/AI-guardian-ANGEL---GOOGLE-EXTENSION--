@@ -9,6 +9,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
     rel="stylesheet">
   <style>
+
     /* ── Reset & Base ─────────────────── */
     *,
     *::before,
@@ -54,17 +55,22 @@
       --text-dim: rgba(30, 41, 59, 0.4);
     }
 
-    body {
-      width: 440px;
-      min-height: 560px;
-      background: var(--bg0);
-      color: var(--text);
-      font-family: 'Inter', -apple-system, sans-serif;
-      font-size: 14px;
-      line-height: 1.5;
-      overflow: hidden;
-    }
+ body {
+  margin: 0;
+  width: 100%;
+  min-height: 100vh;
+  background: var(--bg0);
+  color: var(--text);
+  font-family: 'Inter', -apple-system, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
 
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  overflow: hidden;
+}
     /* ── Scrollable Body ──────────────── */
     .popup-body {
       max-height: 620px;
@@ -343,6 +349,7 @@
       gap: 6px;
     }
 
+  
     /* ── Safety Score ─────────────────── */
     .score-ring-wrap {
       display: flex;
@@ -674,10 +681,10 @@
     }
 
     /* ── Input / Select ───────────────── */
-    .field-group {
-      margin-bottom: 12px;
-    }
-
+ .field-group {
+  text-align: left;
+  width: 100%;
+}
     .field-label {
       font-size: 11px;
       font-weight: 600;
@@ -841,11 +848,19 @@
     }
 
     /* ── Setup screen ─────────────────── */
-    #setup-screen {
-      padding: 32px 20px;
-      text-align: center;
-    }
+  #setup-screen {
+  width: 100%;
+  max-width: 460px;
 
+  padding: 40px 30px;
+  text-align: center;
+
+  background: rgba(10, 10, 20, 0.9);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 24px;
+
+  box-shadow: 0 0 40px rgba(0,0,0,0.45);
+}
     .setup-icon {
       font-size: 64px;
       margin-bottom: 16px;
@@ -970,7 +985,7 @@
     <p class="setup-desc">Your intelligent security &amp; privacy assistant powered by <strong
         style="color:#818cf8">Google Gemini AI</strong>. Enter your free Gemini API key to activate full AI features.
     </p>
-    <div class="field-group" style="text-align:left">
+   <div class="field-group">
       <label class="field-label">OpenAI API Key</label>
       <input id="setup-key" type="password" class="field-input" placeholder="AIzaSy…" autocomplete="off">
     </div>
