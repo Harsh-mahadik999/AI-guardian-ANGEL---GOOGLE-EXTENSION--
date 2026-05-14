@@ -286,23 +286,33 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           return email;
 
         case "SCAN_PAGE":
-  console.log(`[Guardian] 📄 Starting page scan...`);
-  const key = await getApiKey();
-  if (!key) {
-    return { 
-      error: "No API key found. Please set your Gemini API key in extension settings.",
-      safetyScore: 0,
-      category: "Unknown",
-      threats: [],
-      goodPoints: [],
-      humanSummary: "Scan could not run — API key is missing.",
-      advice: "Please add your Gemini API key in the extension settings."
-    };
-  }
-  await incrementStat("pagesScanned");
-  const scan = await scanPage(msg.url, msg.text, msg.title);
-  console.log(`[Guardian] ✅ Page scan complete:`, scan);
-  return scan;
+          console.log(`[Guardian] 📄 Starting page scan...`);
+          const key = await getApiKey();
+          if (!key) {
+            return { 
+              error: "No API key found. Please set your Gemini API key in extension settings.",
+              safetyScore: 0,
+              category: "Unknown",
+              threats: [],
+              goodPoints: [],
+              humanSummary: "Scan could not run — API key is missing.",
+              advice: "Please add your Gemini API key in the extension settings."
+            };
+          }
+          await incrementStat("pagesScanned");
+          const scan = await scanPage(msg.url, msg.text, msg.title);
+          const scanSummary = {
+            url: msg.url,
+            title: msg.title || 'Unknown Page',
+            timestamp: Date.now(),
+            general: scan,
+            isPrivacy: false,
+            isPayment: false,
+            overallScore: scan.safetyScore || 50
+          };
+          await new Promise(resolve => chrome.storage.local.set({ currentPageScan: scanSummary }, resolve));
+          console.log(`[Guardian] ✅ Page scan complete:`, scan);
+          return scan;
 
         case "ANALYZE_PAGE":
           console.log(`[Guardian] 📋 Starting page analysis...`);
