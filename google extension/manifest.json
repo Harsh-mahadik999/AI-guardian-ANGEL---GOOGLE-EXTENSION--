@@ -22,7 +22,7 @@
         "service_worker": "background.js"
     },
     "action": {
-        "default_popup": "popup_simple.html",
+        "default_popup": "popup.html",
         "default_title": "Guardian AI Shield",
         "default_icon": {
             "16": "icons/icon16.png",

@@ -28,7 +28,7 @@
 2. **Go to `chrome://extensions/`**
 3. **Enable "Developer mode"** (top right)
 4. **Click "Load unpacked"** and select this folder
-5. ✅ Extension loads with API key pre-configured!
+5. ✅ Extension loads and prompts for your Gemini API key.
 
 ### Running the Demo
 
@@ -71,9 +71,9 @@
 
 ## 🔑 API Key Information
 
-- **Pre-configured API Key:** `AIzaSyD-Id2Kz8PBUu6BT5RLEgYXKB6_ePdPQJw`
-- **Auto-saves on first load**
-- **No manual setup needed**
+- **API Key Required:** enter your own Gemini API key in the extension setup screen
+- **Stored locally in Chrome extension storage**
+- **No shared or pre-configured key is bundled**
 - **Uses Google Gemini 2.0 Flash AI**
 
 ---
@@ -91,8 +91,8 @@
 ## 🎯 Hackathon Winning Features
 
 ✨ **Fully Automated**
-- No API key entry needed
-- Auto-setup on first run
+- User-provided API key setup
+- Local-only key storage
 - Ready to demo immediately
 
 ✨ **Real AI Integration**

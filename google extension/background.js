@@ -5,9 +5,14 @@
 const VERSION = "2.0.0";
 const API_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions';
 const MODEL = 'gemini-2.0-flash';
+const API_KEY_STORAGE_KEY = "guardian_gemini_api_key";
 
 async function getApiKey() {
-  return "AIzaSyD-Id2Kz8PBUu6BT5RLEgYXKB6_ePdPQJw";
+  return new Promise(resolve => {
+    chrome.storage.local.get([API_KEY_STORAGE_KEY], r => {
+      resolve(r[API_KEY_STORAGE_KEY] || "");
+    });
+  });
 }
 
 // ─── Rate Limiter: min 6s between calls ─────────────────────
@@ -158,7 +163,9 @@ function ruleBasedEmail(subject, sender, body) {
 // ─── AI Helper with 429 fallback to rule-based ───────────────
 async function callAI(systemPrompt, userContent, maxTokens = 600, retries = 1) {
   const apiKey = await getApiKey();
-  if (!apiKey) throw new Error("NO_API_KEY");
+  if (!apiKey) {
+    throw new Error("No API key set. Please add your Gemini API key in the extension settings.");
+  }
 
   await waitForRateLimit();
 
@@ -190,6 +197,9 @@ async function callAI(systemPrompt, userContent, maxTokens = 600, retries = 1) {
         return callAI(systemPrompt, userContent, maxTokens, retries - 1);
       }
       throw new Error("RATE_LIMITED");
+    console.error(`[Guardian] ❌ API Error:`, errorMsg);
+    if (res.status === 401 || res.status === 403 || errorMsg.includes('User not found')) {
+      throw new Error('Invalid API key — please update your Gemini API key in the extension settings.');
     }
     if (res.status === 401 || res.status === 403) throw new Error("Invalid API key.");
     throw new Error(errorMsg);
@@ -351,6 +361,34 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           }
 
           let general = null, privacy = null, payment = null;
+        case "SCAN_PAGE":
+          console.log(`[Guardian] 📄 Starting page scan...`);
+          const key = await getApiKey();
+          if (!key) {
+            return { 
+              error: "No API key found. Please set your Gemini API key in extension settings.",
+              safetyScore: 0,
+              category: "Unknown",
+              threats: [],
+              goodPoints: [],
+              humanSummary: "Scan could not run — API key is missing.",
+              advice: "Please add your Gemini API key in the extension settings."
+            };
+          }
+          await incrementStat("pagesScanned");
+          const scan = await scanPage(msg.url, msg.text, msg.title);
+          const scanSummary = {
+            url: msg.url,
+            title: msg.title || 'Unknown Page',
+            timestamp: Date.now(),
+            general: scan,
+            isPrivacy: false,
+            isPayment: false,
+            overallScore: scan.safetyScore || 50
+          };
+          await new Promise(resolve => chrome.storage.local.set({ currentPageScan: scanSummary }, resolve));
+          console.log(`[Guardian] ✅ Page scan complete:`, scan);
+          return scan;
 
           // Always do general scan (1 call)
           general = await scanPage(msg.url, msg.text || "", msg.title || "");
@@ -413,11 +451,20 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           return { ok: true };
 
         case "SAVE_API_KEY":
-          await new Promise(r => chrome.storage.local.set({ openrouter_api_key: msg.key }, r));
+          await new Promise(r => chrome.storage.local.set({ [API_KEY_STORAGE_KEY]: msg.key }, r));
+          return { ok: true };
+
+        case "CLEAR_API_KEY":
+          await new Promise(r => chrome.storage.local.remove(API_KEY_STORAGE_KEY, r));
           return { ok: true };
 
         case "CHECK_API_KEY":
-          return { hasKey: true, provider: "gemini" };
+          const storedKey = await getApiKey();
+          return {
+            hasKey: !!storedKey,
+            provider: "gemini",
+            keySuffix: storedKey ? storedKey.slice(-4) : ""
+          };
 
         default:
           return { error: "Unknown message type" };
