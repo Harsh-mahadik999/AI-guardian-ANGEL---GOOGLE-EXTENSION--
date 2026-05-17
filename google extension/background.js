@@ -2,7 +2,7 @@
 //  Guardian AI – Background Service Worker  (Manifest V3)
 //  AI Engine: OpenRouter or OpenAI Compatible
 // ============================================================
-
+import { detectLanguage } from "./utils/languageDetector.js";
 const VERSION = "2.0.0";
 const API_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions';
 const MODEL = 'gemini-2.0-flash';
@@ -52,7 +52,7 @@ async function incrementStat(key, amount = 1) {
 async function callAI(systemPrompt, userContent, maxTokens = 800) {
   const apiKey = await getApiKey();
   if (!apiKey) {
-    throw new Error("No API key set. Please add your OpenRouter API key in the extension settings.");
+    throw new Error("No API key set. Please add your Gemini API key in the extension settings.");
   }
 
   const combinedPrompt = `${systemPrompt}\n\n${userContent}`;
@@ -79,7 +79,7 @@ async function callAI(systemPrompt, userContent, maxTokens = 800) {
     const errorMsg = err.error?.message || `API Error ${res.status}`;
     console.error(`[Guardian] ❌ API Error:`, errorMsg);
     if (res.status === 401 || res.status === 403 || errorMsg.includes('User not found')) {
-      throw new Error('Invalid API key — please update your OpenRouter API key in background.js');
+      throw new Error('Invalid API key — please update your Gemini API key in the extension settings.');
     }
     throw new Error(errorMsg);
   }
@@ -92,11 +92,16 @@ async function callAI(systemPrompt, userContent, maxTokens = 800) {
 
 // ─── Privacy Policy Analyzer ───────────────────────────────
 async function analyzePrivacyPolicy(text, url, title) {
+  const lang = detectLanguage(text) || "en";
   const SYSTEM = `You are Guardian AI, a friendly but sharp privacy analyst. 
 Your job: analyze privacy policies and terms of service with empathy and clarity.
 Always respond with a valid JSON object — no markdown, no extra text.`;
 
-  const USER = `Analyze this privacy policy from "${title}" (${url}).
+  const USER = `
+The following content is written in ${lang}.
+Please analyze it accordingly.
+
+Analyze this privacy policy from "${title}" (${url}).
 
 Text (truncated): ${text.slice(0, 4000)}
 
@@ -129,10 +134,15 @@ Return EXACTLY this JSON:
 
 // ─── Payment Gateway Verifier ──────────────────────────────
 async function verifyPaymentGateway(url, pageText) {
+  const lang = detectLanguage(pageText) || "en";
   const SYSTEM = `You are Guardian AI, a cybersecurity expert specializing in payment fraud. 
 Be conversational, human, and protective. Return only valid JSON.`;
 
-  const USER = `Analyze this checkout/payment page for legitimacy.
+ const USER = `
+The following content is written in ${lang}.
+Please analyze it accordingly.
+
+Analyze this checkout/payment page for legitimacy.
 URL: ${url}
 Page content snippet: ${pageText.slice(0, 2000)}
 
@@ -163,10 +173,15 @@ Return EXACTLY:
 
 // ─── Email Scam Detector ────────────────────────────────────
 async function analyzeEmail(subject, sender, body) {
+  const lang = detectLanguage(body) || "en";
   const SYSTEM = `You are Guardian AI, an email security expert. 
 You protect users from phishing and scams in a warm, calm tone. Return only valid JSON.`;
+  const USER = `
+The following content is written in ${lang}.
+Please analyze it accordingly.
 
-  const USER = `Analyze this email for scam/phishing signals.
+Analyze this email for scam/phishing signals.
+
 Subject: ${subject}
 From: ${sender}
 Body (first 2000 chars): ${body.slice(0, 2000)}
@@ -198,10 +213,14 @@ Return EXACTLY:
 
 // ─── General Page Scanner ──────────────────────────────────
 async function scanPage(url, text, title) {
+  const lang = detectLanguage(text) || "en";
   const SYSTEM = `You are Guardian AI, a friendly website security scanner. 
 Speak like a knowledgeable friend, not a robot. Return valid JSON only.`;
+  const USER = `
+The following content is written in ${lang}.
+Please analyze it accordingly.
 
-  const USER = `Scan this webpage for security and privacy concerns.
+Scan this webpage for security and privacy concerns.
 Page: "${title}" at ${url}
 Content (first 3000 chars): ${text.slice(0, 3000)}
 
@@ -287,23 +306,33 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           return email;
 
         case "SCAN_PAGE":
-  console.log(`[Guardian] 📄 Starting page scan...`);
-  const key = await getApiKey();
-  if (!key) {
-    return { 
-      error: "No API key found. Please set your OpenRouter API key in extension settings.",
-      safetyScore: 0,
-      category: "Unknown",
-      threats: [],
-      goodPoints: [],
-      humanSummary: "Scan could not run — API key is missing.",
-      advice: "Please add your OpenRouter API key in the extension settings."
-    };
-  }
-  await incrementStat("pagesScanned");
-  const scan = await scanPage(msg.url, msg.text, msg.title);
-  console.log(`[Guardian] ✅ Page scan complete:`, scan);
-  return scan;
+          console.log(`[Guardian] 📄 Starting page scan...`);
+          const key = await getApiKey();
+          if (!key) {
+            return { 
+              error: "No API key found. Please set your Gemini API key in extension settings.",
+              safetyScore: 0,
+              category: "Unknown",
+              threats: [],
+              goodPoints: [],
+              humanSummary: "Scan could not run — API key is missing.",
+              advice: "Please add your Gemini API key in the extension settings."
+            };
+          }
+          await incrementStat("pagesScanned");
+          const scan = await scanPage(msg.url, msg.text, msg.title);
+          const scanSummary = {
+            url: msg.url,
+            title: msg.title || 'Unknown Page',
+            timestamp: Date.now(),
+            general: scan,
+            isPrivacy: false,
+            isPayment: false,
+            overallScore: scan.safetyScore || 50
+          };
+          await new Promise(resolve => chrome.storage.local.set({ currentPageScan: scanSummary }, resolve));
+          console.log(`[Guardian] ✅ Page scan complete:`, scan);
+          return scan;
 
         case "ANALYZE_PAGE":
           console.log(`[Guardian] 📋 Starting page analysis...`);
@@ -397,7 +426,11 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           return { ok: true };
 
         case "SAVE_API_KEY":
-          await new Promise(r => chrome.storage.local.set({ openrouter_api_key: msg.key }, r));
+          await new Promise(r => chrome.storage.local.set({ [API_KEY_STORAGE_KEY]: msg.key }, r));
+          return { ok: true };
+
+        case "CLEAR_API_KEY":
+          await new Promise(r => chrome.storage.local.remove(API_KEY_STORAGE_KEY, r));
           return { ok: true };
 
         case "CHECK_API_KEY":

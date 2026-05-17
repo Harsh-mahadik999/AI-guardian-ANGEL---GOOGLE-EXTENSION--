@@ -85,6 +85,88 @@ function buildTags(items, cls = "tag-amber") {
     return `<div style="margin-top:8px">${items.map(t => `<span class="tag ${cls}">⚡ ${t}</span>`).join("")}</div>`;
 }
 
+function parseApiResponse(resp) {
+    if (!resp) return resp;
+    if (resp.candidates?.[0]?.content?.parts?.[0]?.text) {
+        try {
+            return JSON.parse(resp.candidates[0].content.parts[0].text.trim());
+        } catch (e) {
+            console.warn('API parse fallback failed:', e);
+        }
+    }
+    if (typeof resp === 'string') {
+        try {
+            return JSON.parse(resp.trim());
+        } catch (e) {
+            console.warn('API parse fallback failed:', e);
+        }
+    }
+    return resp;
+}
+
+function displayScanResult(result) {
+    if (!result || result.error) {
+        $("scan-result").innerHTML = `<div class="alert alert-warning"><span class="alert-icon">⚠️</span><span>${result?.error || 'Unable to load scan results.'}</span></div>`;
+        $("scan-result").classList.remove("hidden");
+        return;
+    }
+
+    const color = scoreToColor(result.safetyScore);
+    $("scan-result").innerHTML = `
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+        <span style="font-size:28px">${result.safetyScore >= 70 ? "✅" : result.safetyScore >= 45 ? "⚠️" : "🚨"}</span>
+        <div>
+          <div style="font-weight:700;font-size:15px">${result.category}</div>
+          <div style="font-size:11px;color:var(--text-dim)">AI Scan Complete</div>
+        </div>
+        <div style="margin-left:auto;font-size:26px;font-weight:900;color:${color}">${result.safetyScore}</div>
+      </div>
+      ${buildRiskBar(100 - result.safetyScore, "Risk Level")}
+      <p style="font-size:13px;color:var(--text-muted);margin:10px 0;line-height:1.6">${result.humanSummary || ''}</p>
+      ${result.threats?.length ? `<div style="margin-bottom:8px"><div class="card-title" style="margin-bottom:6px">⚠️ Threats Found</div>${buildTags(result.threats, "tag-red")}</div>` : ""}
+      ${result.goodPoints?.length ? `<div><div class="card-title" style="margin-bottom:6px">✅ Good Signs</div>${buildTags(result.goodPoints, "tag-green")}</div>` : ""}
+      ${result.advice ? `<div class="alert alert-info" style="margin-top:12px"><span class="alert-icon">💡</span><span>${result.advice}</span></div>` : ""}
+    `;
+    $("scan-result").classList.remove("hidden");
+}
+
+function renderLastScanCard(scan) {
+    if (!scan || !scan.url) {
+        $("last-scan-card").style.display = "none";
+        return;
+    }
+
+    const score = scan.overallScore || scan.general?.safetyScore || 0;
+    const verdict = score >= 70 ? "Safe" : score >= 40 ? "Moderate" : "High Risk";
+    const badgeColor = score >= 70 ? "#10b981" : score >= 40 ? "#f59e0b" : "#ef4444";
+    const date = new Date(scan.timestamp || Date.now()).toLocaleString();
+    $("last-scan-title").textContent = scan.title || new URL(scan.url).hostname;
+    $("last-scan-badge").textContent = `${verdict} • ${Math.round(score)}/100`;
+    $("last-scan-badge").style.background = `${badgeColor}22`;
+    $("last-scan-badge").style.color = badgeColor;
+    $("last-scan-time").textContent = `Scanned on ${date}`;
+    $("last-scan-summary").textContent = scan.general?.humanSummary || scan.summary || 'The latest scan summary will appear here.';
+    $("last-scan-card").style.display = "block";
+}
+
+async function loadCurrentScan() {
+    try {
+        const current = await sendBg({ type: "GET_CURRENT_SCAN" });
+        if (!current || current.error) {
+            renderLastScanCard(null);
+            return;
+        }
+        renderLastScanCard(current);
+        const tab = await getActiveTab();
+        if (current.url !== tab.url) return;
+        const scan = current.general || current;
+        if (!scan) return;
+        displayScanResult(scan);
+    } catch (_) {
+        renderLastScanCard(null);
+    }
+}
+
 // ─── Tab Routing ─────────────────────────────────────────────
 const tabs = document.querySelectorAll(".nav-tab");
 const panels = document.querySelectorAll(".panel");
@@ -130,6 +212,8 @@ async function showMainApp() {
     $("main-app").classList.remove("hidden");
     await loadStats();
     await loadPageInfo();
+    await loadCurrentScan();
+    await refreshApiKeyState();
 }
 
 $("setup-save")?.addEventListener("click", async () => {
@@ -259,25 +343,12 @@ $("scan-page-btn")?.addEventListener("click", async () => {
         });
 
         if (result.error) throw new Error(result.error);
-
-        const color = scoreToColor(result.safetyScore);
-        $("scan-result").innerHTML = `
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
-        <span style="font-size:28px">${result.safetyScore >= 70 ? "✅" : result.safetyScore >= 45 ? "⚠️" : "🚨"}</span>
-        <div>
-          <div style="font-weight:700;font-size:15px">${result.category}</div>
-          <div style="font-size:11px;color:var(--text-dim)">AI Scan Complete</div>
-        </div>
-        <div style="margin-left:auto;font-size:26px;font-weight:900;color:${color}">${result.safetyScore}</div>
-      </div>
-      ${buildRiskBar(100 - result.safetyScore, "Risk Level")}
-      <p style="font-size:13px;color:var(--text-muted);margin:10px 0;line-height:1.6">${result.humanSummary}</p>
-      ${result.threats?.length ? `<div style="margin-bottom:8px"><div class="card-title" style="margin-bottom:6px">⚠️ Threats Found</div>${buildTags(result.threats, "tag-red")}</div>` : ""}
-      ${result.goodPoints?.length ? `<div><div class="card-title" style="margin-bottom:6px">✅ Good Signs</div>${buildTags(result.goodPoints, "tag-green")}</div>` : ""}
-      ${result.advice ? `<div class="alert alert-info" style="margin-top:12px"><span class="alert-icon">💡</span><span>${result.advice}</span></div>` : ""}
-    `;
+        displayScanResult(result);
+        await loadStats();
+        await loadCurrentScan();
     } catch (err) {
         $("scan-result").innerHTML = `<div class="alert alert-warning"><span class="alert-icon">⚠️</span><span>${err.message === "NO_API_KEY" ? "Set your API key in Settings to enable AI scanning." : "Error: " + err.message}</span></div>`;
+        $("scan-result").classList.remove("hidden");
     }
 });
 
@@ -293,6 +364,7 @@ $("highlight-links-btn")?.addEventListener("click", async () => {
 async function displayPrivacyResult(result, containerId = "privacy-result") {
     if (result.error) {
         $(containerId).innerHTML = `<div class="alert alert-warning"><span class="alert-icon">⚠️</span><span>${result.error === "NO_API_KEY" ? "Set your API key in Settings first." : result.error}</span></div>`;
+        $(containerId).classList.remove("hidden");
         return;
     }
     const color = scoreToColor(result.riskScore, true);
@@ -321,12 +393,13 @@ $("analyze-policy-btn")?.addEventListener("click", async () => {
     try {
         const tab = await getActiveTab();
         const content = await sendContent(tab.id, { type: "GET_PAGE_TEXT" });
-        const result = await sendBg({
+        const rawResult = await sendBg({
             type: "ANALYZE_PRIVACY_POLICY",
             text: content.text,
             url: tab.url,
             title: content.title
         });
+        const result = parseApiResponse(rawResult);
         displayPrivacyResult(result);
     } catch (err) {
         $("privacy-result").innerHTML = `<div class="alert alert-danger"><span class="alert-icon">❌</span><span>${err.message}</span></div>`;
@@ -338,12 +411,13 @@ $("analyze-pasted-btn")?.addEventListener("click", async () => {
     if (!text) { alert("Please paste some policy text first."); return; }
     showLoading("privacy-result", "Analyzing pasted text…");
     try {
-        const result = await sendBg({
+        const rawResult = await sendBg({
             type: "ANALYZE_PRIVACY_POLICY",
             text,
             url: "manual-paste",
             title: "Pasted Policy"
         });
+        const result = parseApiResponse(rawResult);
         displayPrivacyResult(result);
     } catch (err) {
         $("privacy-result").innerHTML = `<div class="alert alert-danger"><span class="alert-icon">❌</span><span>${err.message}</span></div>`;
@@ -449,34 +523,42 @@ $("analyze-email-btn")?.addEventListener("click", async () => {
 });
 
 // ─── Settings Logic ───────────────────────────────────────────
+const SETTINGS_TOGGLES = ["adsEnabled", "trackersEnabled", "autoConsent", "paymentVerify", "autoPrivacy", "emailScan", "linkHighlight"];
+const AI_AUTOMATION_TOGGLES = new Set(["paymentVerify", "autoPrivacy", "emailScan"]);
+
 async function loadSettings() {
     return new Promise(resolve => {
-        chrome.storage.sync.get(["gemini_key", "privacyLevel", "adsEnabled", "trackersEnabled", "autoConsent", "paymentVerify", "autoPrivacy", "linkHighlight"], prefs => {
+        chrome.storage.sync.get(["privacyLevel", ...SETTINGS_TOGGLES], prefs => {
             // Privacy level
             if ($("privacy-level")) $("privacy-level").value = prefs.privacyLevel || "strict";
             // Toggles
-            const toggles = ["adsEnabled", "trackersEnabled", "autoConsent", "paymentVerify", "autoPrivacy", "linkHighlight"];
-            toggles.forEach(key => {
-                const val = prefs[key] !== false; // default ON
+            SETTINGS_TOGGLES.forEach(key => {
+                const val = AI_AUTOMATION_TOGGLES.has(key) ? prefs[key] === true : prefs[key] !== false;
                 const el = document.querySelector(`[data-key="${key}"]`);
                 if (el) el.classList.toggle("on", val);
             });
-            // Mask key in settings
-            if ($("settings-key") && prefs.gemini_key) {
-                $("settings-key").placeholder = "AIza…" + prefs.gemini_key.slice(-4) + " (saved)";
-            }
             resolve(prefs);
         });
     });
 }
 
+async function refreshApiKeyState() {
+    const keyState = await sendBg({ type: "CHECK_API_KEY" });
+    if ($("settings-key")) {
+        $("settings-key").placeholder = keyState.hasKey
+            ? `AIza…${keyState.keySuffix} (saved)`
+            : "AIza…";
+    }
+    if ($("ai-coverage")) $("ai-coverage").textContent = keyState.hasKey ? "Active (Gemini)" : "No Key";
+    if ($("ai-bar")) $("ai-bar").style.width = keyState.hasKey ? "100%" : "0%";
+}
+
 async function saveSettings() {
     const prefs = {};
     prefs.privacyLevel = $("privacy-level")?.value || "strict";
-    const toggles = ["adsEnabled", "trackersEnabled", "autoConsent", "paymentVerify", "autoPrivacy", "linkHighlight"];
-    toggles.forEach(key => {
+    SETTINGS_TOGGLES.forEach(key => {
         const el = document.querySelector(`[data-key="${key}"]`);
-        prefs[key] = el ? el.classList.contains("on") : true;
+        prefs[key] = el ? el.classList.contains("on") : !AI_AUTOMATION_TOGGLES.has(key);
     });
     await new Promise(r => chrome.storage.sync.set(prefs, r));
 }
@@ -511,7 +593,14 @@ $("save-key-btn")?.addEventListener("click", async () => {
 // Clear key
 $("clear-key-btn")?.addEventListener("click", async () => {
     if (!confirm("Are you sure you want to clear your API key and reset all settings?")) return;
+    await sendBg({ type: "CLEAR_API_KEY" });
     await new Promise(r => chrome.storage.sync.clear(r));
+    await new Promise(r => chrome.storage.local.remove([
+        "apiKey",
+        "stats",
+        "currentPageScan",
+        "guardianPaused"
+    ], r));
     location.reload();
 });
 

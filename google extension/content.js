@@ -26,6 +26,32 @@
         return (document.body?.innerText || "").slice(0, maxLen);
     }
 
+    function getAutomationPrefs() {
+        return new Promise(resolve => {
+            chrome.storage.sync.get(["autoPrivacy", "paymentVerify", "emailScan"], prefs => {
+                resolve({
+                    autoPrivacy: prefs.autoPrivacy === true,
+                    paymentVerify: prefs.paymentVerify === true,
+                    emailScan: prefs.emailScan === true
+                });
+            });
+        });
+    }
+
+    function isSensitivePage() {
+        const hostname = location.hostname.replace(/^www\./, "").toLowerCase();
+        const sensitiveHosts = [
+            "mail.google.com",
+            "docs.google.com",
+            "drive.google.com",
+            "sheets.google.com",
+            "accounts.google.com",
+            "calendar.google.com"
+        ];
+        const sensitivePath = /account|bank|statement|medical|health/i;
+        return sensitiveHosts.includes(hostname) || sensitivePath.test(location.href);
+    }
+
     // ─── 1. Privacy Policy Auto-Detect ────────────────────────
     const PRIVACY_KEYWORDS = [
         /privacy\s*policy/i, /terms\s*(of\s*service|and\s*conditions)/i,
@@ -328,27 +354,38 @@
         // Link highlighting
         setTimeout(highlightSuspiciousLinks, 2000);
 
-        // Gmail
-        initGmailScanner();
+        const automationPrefs = await getAutomationPrefs();
 
-        // AUTO-SCAN: Always scan every page for the popup dashboard
+        // Gmail email bodies are sensitive, so scanning requires explicit opt-in.
+        if (automationPrefs.emailScan) {
+            initGmailScanner();
+        }
+
+        // AUTO-SCAN: run only for explicitly enabled page categories.
         setTimeout(async () => {
             try {
-                const pageText = getPageText(8000);
                 const url = location.href;
                 const title = document.title;
                 const privacyPage = isPrivacyPage();
-                const paymentPage = isPaymentPage();
+                const shouldScanPrivacy = automationPrefs.autoPrivacy && privacyPage;
+                const shouldScanPayment = automationPrefs.paymentVerify && isPaymentPage();
 
-                console.log('[Guardian] 🔄 Auto-scanning:', title, '(privacy:', privacyPage, 'payment:', paymentPage, ')');
+                if ((!shouldScanPrivacy && !shouldScanPayment) || isSensitivePage()) {
+                    console.log('[Guardian] Auto-scan skipped: no opt-in category or sensitive page.');
+                    return;
+                }
+
+                const pageText = getPageText(8000);
+
+                console.log('[Guardian] 🔄 Auto-scanning:', title, '(privacy:', shouldScanPrivacy, 'payment:', shouldScanPayment, ')');
 
                 const result = await send({
                     type: 'AUTO_SCAN_PAGE',
                     url: url,
                     title: title,
                     text: pageText,
-                    isPrivacy: privacyPage,
-                    isPayment: paymentPage
+                    isPrivacy: shouldScanPrivacy,
+                    isPayment: shouldScanPayment
                 });
 
                 console.log('[Guardian] ✅ Auto-scan complete for:', title);

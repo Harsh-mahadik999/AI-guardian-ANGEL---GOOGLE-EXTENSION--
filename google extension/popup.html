@@ -971,7 +971,7 @@
         style="color:#818cf8">Google Gemini AI</strong>. Enter your free Gemini API key to activate full AI features.
     </p>
     <div class="field-group" style="text-align:left">
-      <label class="field-label">OpenAI API Key</label>
+      <label class="field-label">Google Gemini API Key</label>
       <input id="setup-key" type="password" class="field-input" placeholder="AIzaSy…" autocomplete="off">
     </div>
     <button id="setup-save" class="btn btn-primary" style="margin-bottom:12px">
@@ -1123,15 +1123,16 @@
           </div>
         </div>
 
-        <button class="btn btn-secondary" id="reset-stats-btn">🔄 Reset Statistics</button>
-      </div>
+        <div class="card" id="last-scan-card" style="display:none;">
+          <div class="card-title">🕒 Last Scan Summary</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px;">
+            <div style="font-weight:700;"><span id="last-scan-title">No scan yet</span></div>
+            <span class="tag tag-green" id="last-scan-badge" style="background:rgba(16,185,129,.12);color:#10b981;border:1px solid rgba(16,185,129,.25);">Safe</span>
+          </div>
+          <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;" id="last-scan-time">—</div>
+          <div style="font-size:13px;color:var(--text-dim);line-height:1.5;" id="last-scan-summary">Your most recent page scan will appear here after you run an AI scan.</div>
+        </div>
 
-      <!-- ─── SCANNER TAB ─── -->
-      <div class="panel" id="tab-scanner">
-        <div class="card-title" style="margin-bottom:12px">🔍 AI Page Scanner</div>
-        <p class="text-small" style="margin-bottom:14px;color:var(--text-muted)">Guardian AI will analyze this page for
-          security risks, scam patterns, and privacy violations in real time.</p>
-        <button class="btn btn-primary" id="scan-page-btn">
           <span>🧠</span> Run Full AI Scan
         </button>
         <button class="btn btn-secondary mt-8" id="highlight-links-btn">
@@ -1182,11 +1183,12 @@
       <!-- ─── EMAIL TAB ─── -->
       <div class="panel" id="tab-email">
         <div class="card-title" style="margin-bottom:8px">📧 Email Scam Detector</div>
-        <p class="text-small" style="margin-bottom:14px;color:var(--text-muted)">On Gmail, Guardian AI auto-scans your
-          emails. Or paste email content below.</p>
+        <p class="text-small" style="margin-bottom:14px;color:var(--text-muted)">Analyze Gmail messages only after
+          enabling email scan, or paste email content below.</p>
         <div class="alert alert-info">
           <span class="alert-icon">ℹ️</span>
-          <span>Open an email on Gmail and Guardian AI will automatically analyze it for phishing patterns.</span>
+          <span>Automatic Gmail analysis is off by default and only runs after you enable Automatic Email Scan in
+            settings.</span>
         </div>
         <div class="field-group">
           <label class="field-label">Paste email content here</label>
@@ -1257,16 +1259,23 @@
           <div class="toggle-row">
             <div>
               <div class="toggle-label">Payment Verification</div>
-              <div class="toggle-sub">Verify checkout pages automatically</div>
+              <div class="toggle-sub">Send checkout page text to AI automatically</div>
             </div>
-            <div class="toggle-switch on" id="toggle-payment" data-key="paymentVerify"></div>
+            <div class="toggle-switch" id="toggle-payment" data-key="paymentVerify"></div>
           </div>
           <div class="toggle-row">
             <div>
               <div class="toggle-label">Auto Privacy Analysis</div>
-              <div class="toggle-sub">Scan privacy policies automatically</div>
+              <div class="toggle-sub">Send policy page text to AI automatically</div>
             </div>
-            <div class="toggle-switch on" id="toggle-privacy-auto" data-key="autoPrivacy"></div>
+            <div class="toggle-switch" id="toggle-privacy-auto" data-key="autoPrivacy"></div>
+          </div>
+          <div class="toggle-row">
+            <div>
+              <div class="toggle-label">Automatic Email Scan</div>
+              <div class="toggle-sub">Send Gmail message text to AI automatically</div>
+            </div>
+            <div class="toggle-switch" id="toggle-email-scan" data-key="emailScan"></div>
           </div>
           <div class="toggle-row">
             <div>
