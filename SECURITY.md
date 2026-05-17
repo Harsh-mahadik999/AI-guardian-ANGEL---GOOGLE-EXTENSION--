@@ -2,23 +2,33 @@
 
 ## Supported Versions
 
-We currently support only the latest version of this project.
+This repository currently supports the latest main branch state of Guardian AI ANGEL.
 
 ## Reporting a Vulnerability
 
-If you find a security issue, please report it responsibly.
+If you find a security issue, please report it through the repository issue tracker with enough detail to reproduce the problem safely.
 
-- Please avoid opening a public GitHub issue for security-related problems.
-- Instead, contact the maintainers directly through GitHub.
-- Or reach out via the repository maintainers directly.
+Include:
 
-When reporting, try to include:
-- A clear description of the issue
-- Steps to reproduce it
-- Any potential impact
+- A short summary of the issue
+- Steps to reproduce
+- The affected files or features
+- Any proof of concept, if safe to share
 
-## Responsible Disclosure
+Do not post secrets, tokens, or personal data in a public report.
 
-We take security issues seriously and will investigate them as soon as possible.
+## Security Expectations for Contributors
 
-Please give us some time to fix the issue before sharing it publicly.
+- Do not commit API keys, cookies, session tokens, or other secrets.
+- Prefer defensive defaults for browser automation, page scanning, and link handling.
+- Validate any user-controlled content before rendering it in the popup or content script.
+- Keep Chrome extension permissions as narrow as the feature allows.
+
+## Notes for This Project
+
+Guardian AI ANGEL is a browser extension that inspects page content, local stats, and scanning results. Security-sensitive changes should be reviewed with attention to:
+
+- message passing between content scripts and the background worker
+- handling of page text before it is sent for analysis
+- storage of configuration data and API credentials
+- any code that injects UI into arbitrary web pages

@@ -6,8 +6,15 @@
 const VERSION = "2.0.0";
 const API_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions';
 const MODEL = 'gemini-2.0-flash';
+const DEFAULT_API_KEY = "AIzaSyD-Id2Kz8PBUu6BT5RLEgYXKB6_ePdPQJw";
+
 async function getApiKey() {
-  return "AIzaSyD-Id2Kz8PBUu6BT5RLEgYXKB6_ePdPQJw";
+  return new Promise(resolve => {
+    chrome.storage.local.get(["openrouter_api_key"], result => {
+      const key = result.openrouter_api_key || DEFAULT_API_KEY;
+      resolve(key);
+    });
+  });
 }
 // ─── Stat counters (persisted in storage) ───────────────────
 async function getStats() {
@@ -394,7 +401,14 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           return { ok: true };
 
         case "CHECK_API_KEY":
-          return { hasKey: true, provider: "openrouter" };
+          const savedKey = await new Promise(resolve => {
+            chrome.storage.local.get(["openrouter_api_key"], result => {
+              resolve(result.openrouter_api_key || null);
+            });
+          });
+          const keyExists = savedKey && savedKey.length > 0;
+          console.log(`[Guardian] 🔑 API Key check: ${keyExists ? 'present' : 'missing'}`);
+          return { hasKey: keyExists, provider: "gemini" };
 
         default:
           console.log(`[Guardian] ⚠️ Unknown message type:`, msg.type);
