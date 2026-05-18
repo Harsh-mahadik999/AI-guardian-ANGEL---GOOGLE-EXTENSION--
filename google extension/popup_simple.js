@@ -16,43 +16,43 @@ document.querySelectorAll('.tabs button').forEach(btn => {
 
 // ─── Restricted URL guard ─────────────────────────────────
 const RESTRICTED_PREFIXES = [
-    "chrome://",
-    "chrome-extension://",
-    "https://chrome.google.com/webstore",
-    "https://chromewebstore.google.com/",
-    "edge://",
-    "about:",
-    "devtools://",
+  "chrome://",
+  "chrome-extension://",
+  "https://chrome.google.com/webstore",
+  "https://chromewebstore.google.com/",
+  "edge://",
+  "about:",
+  "devtools://",
 ];
 
 const TAB_ERROR_MESSAGES = {
-    NO_ACTIVE_TAB:   "No active tab found. Please open a webpage and try again.",
-    RESTRICTED_PAGE: "Guardian AI can't run on this page — browser system pages and the Chrome Web Store are off-limits. Please navigate to a regular website.",
+  NO_ACTIVE_TAB: "No active tab found. Please open a webpage and try again.",
+  RESTRICTED_PAGE: "Guardian AI can't run on this page — browser system pages and the Chrome Web Store are off-limits. Please navigate to a regular website.",
 };
 
 function isRestrictedUrl(url) {
-    return !url || RESTRICTED_PREFIXES.some(prefix => url.startsWith(prefix));
+  return !url || RESTRICTED_PREFIXES.some(prefix => url.startsWith(prefix));
 }
 
 async function getActiveTab() {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!tab) {
-        const err = new Error(TAB_ERROR_MESSAGES.NO_ACTIVE_TAB);
-        err.code = "NO_ACTIVE_TAB";
-        throw err;
-    }
-    if (isRestrictedUrl(tab.url)) {
-        const err = new Error(TAB_ERROR_MESSAGES.RESTRICTED_PAGE);
-        err.code = "RESTRICTED_PAGE";
-        throw err;
-    }
-    return tab;
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab) {
+    const err = new Error(TAB_ERROR_MESSAGES.NO_ACTIVE_TAB);
+    err.code = "NO_ACTIVE_TAB";
+    throw err;
+  }
+  if (isRestrictedUrl(tab.url)) {
+    const err = new Error(TAB_ERROR_MESSAGES.RESTRICTED_PAGE);
+    err.code = "RESTRICTED_PAGE";
+    throw err;
+  }
+  return tab;
 }
 
 // ─── On Load ──────────────────────────────────────────────
 window.addEventListener('load', () => {
   loadAll();
-  
+
   const pauseToggle = $('pauseToggle');
   if (pauseToggle) {
     chrome.storage.local.get(['guardianPaused'], res => {
@@ -99,7 +99,7 @@ function loadSummary() {
 function renderSummary(scan) {
   const el = $('pageSummary');
   if (!el) return;
-  
+
   const score = Math.round(scan.overallScore || 50);
   const cls = score >= 70 ? 'green' : score >= 40 ? 'yellow' : 'red';
 
@@ -122,6 +122,16 @@ function renderSummary(scan) {
     if (g.advice) html += `<div class="summary-tip">💡 ${escHtml(g.advice)}</div>`;
   }
 
+  else if (scan.errors?.general) {
+    html += `
+    <div style="margin-top:10px;">
+      <div class="risk-item">
+        General scan failed: ${escHtml(scan.errors.general)}
+      </div>
+    </div>
+  `;
+  }
+
   // Privacy
   if (scan.privacy) {
     const p = scan.privacy;
@@ -133,6 +143,16 @@ function renderSummary(scan) {
     html += `</div>`;
   }
 
+  else if (scan.errors?.privacy) {
+    html += `
+    <div style="margin-top:10px;padding-top:10px;border-top:1px solid #1e1e3a;">
+      <div class="risk-item">
+        Privacy analysis failed: ${escHtml(scan.errors.privacy)}
+      </div>
+    </div>
+  `;
+  }
+
   // Payment
   if (scan.payment) {
     const pay = scan.payment;
@@ -140,8 +160,20 @@ function renderSummary(scan) {
     html += `<div style="margin-top:10px;padding-top:10px;border-top:1px solid #1e1e3a;">`;
     html += `<div class="score-row">💳 Payment: <span class="score-badge score-${vcls}">${pay.verdict}</span></div>`;
     html += `<div class="detail-row"><strong>SSL:</strong> ${pay.ssl ? '✅ Secure' : '❌ Insecure'}</div>`;
-    if (pay.humanMessage) html += `<div class="summary-line">${escHtml(pay.humanMessage)}</div>`;
+    if (pay.humanMessage) {
+      html += `<div class="summary-line">${escHtml(pay.humanMessage)}</div>`;
+    }
     html += `</div>`;
+  }
+
+  else if (scan.errors?.payment) {
+    html += `
+    <div style="margin-top:10px;padding-top:10px;border-top:1px solid #1e1e3a;">
+      <div class="risk-item">
+        Payment verification failed: ${escHtml(scan.errors.payment)}
+      </div>
+    </div>
+  `;
   }
 
   el.innerHTML = html;
@@ -153,9 +185,9 @@ async function scanNow() {
   try {
     const tab = await getActiveTab();
     const pageText = await getPageText(tab);
-    
+
     log('📤 Manual scan:', tab.title, '(', pageText.length, 'chars )');
-    
+
     chrome.runtime.sendMessage({
       type: 'AUTO_SCAN_PAGE',
       url: tab.url,
@@ -185,22 +217,22 @@ async function runPrivacy() {
   btn.disabled = true; btn.textContent = '⏳ Analyzing...';
   res.innerHTML = '<div class="loading">AI analyzing privacy</div>';
   res.classList.add('show');
-  
+
   try {
     const tab = await getActiveTab();
     const text = await getPageText(tab);
-    
+
     chrome.runtime.sendMessage({
       type: 'ANALYZE_PRIVACY_POLICY',
       text, url: tab.url, pageTitle: tab.title
     }, resp => {
       btn.disabled = false; btn.textContent = '🔐 Analyze Privacy & Terms';
-      
+
       if (!resp || resp.error) {
         res.innerHTML = `<div style="color:#ef4444;">❌ ${resp?.error || 'No response'}</div>`;
         return;
       }
-      
+
       // Parse response (may be wrapped in candidates format)
       let data = resp;
       try {
@@ -209,15 +241,15 @@ async function runPrivacy() {
         } else if (typeof resp === 'string') {
           data = JSON.parse(resp);
         }
-      } catch(e) { log('Parse fallback:', e); }
-      
+      } catch (e) { log('Parse fallback:', e); }
+
       const score = Math.min(100, Math.max(0, data.riskScore || 50));
       const cls = score < 30 ? 'green' : score < 60 ? 'yellow' : 'red';
       const barColor = score < 30 ? '#10b981' : score < 60 ? '#f59e0b' : '#ef4444';
-      
+
       let html = `<div class="score-row">Risk Score: <span class="score-badge score-${cls}">${score}/100</span></div>`;
       html += `<div class="risk-bar-wrap"><div class="risk-bar" style="width:${score}%;background:${barColor}"></div></div>`;
-      
+
       if (data.humanVerdict) html += `<div class="summary-line" style="margin:8px 0;">${escHtml(data.humanVerdict)}</div>`;
       if (data.bullets?.length) {
         html += `<div style="margin-top:8px;">`;
@@ -232,7 +264,7 @@ async function runPrivacy() {
       if (score < 30) {
         html += `<button class="btn btn-green" style="margin-top:10px;" onclick="autoAccept()">✅ Auto Accept (Safe Policy)</button>`;
       }
-      
+
       res.innerHTML = html;
     });
   } catch (e) {
@@ -248,26 +280,26 @@ async function runPayment() {
   btn.disabled = true; btn.textContent = '⏳ Verifying...';
   res.innerHTML = '<div class="loading">AI verifying payment</div>';
   res.classList.add('show');
-  
+
   try {
     const tab = await getActiveTab();
     const text = await getPageText(tab);
-    
+
     chrome.runtime.sendMessage({
       type: 'VERIFY_PAYMENT', text, url: tab.url
     }, resp => {
       btn.disabled = false; btn.textContent = '💳 Verify Payment Page';
-      
+
       if (!resp || resp.error) {
         res.innerHTML = `<div style="color:#ef4444;">❌ ${resp?.error || 'No response'}</div>`;
         return;
       }
-      
+
       let data = resp;
-      try { if (typeof resp === 'string') data = JSON.parse(resp); } catch(e) {}
-      
+      try { if (typeof resp === 'string') data = JSON.parse(resp); } catch (e) { }
+
       const vcls = data.verdict?.includes('Legit') ? 'green' : data.verdict?.includes('Suspicious') ? 'yellow' : 'red';
-      
+
       let html = `<div class="verdict"><span class="score-badge score-${vcls}" style="font-size:14px;padding:6px 14px;">${data.verdict || 'Unknown'}</span></div>`;
       html += `<div class="detail-row"><strong>SSL:</strong> ${data.ssl ? '✅ Secure' : '❌ Not Secure'}</div>`;
       html += `<div class="detail-row"><strong>Domain:</strong> ${data.domainAge || 'Unknown'}</div>`;
@@ -277,7 +309,7 @@ async function runPayment() {
         html += `</div>`;
       }
       if (data.humanMessage) html += `<div class="summary-line" style="margin-top:8px;">${escHtml(data.humanMessage)}</div>`;
-      
+
       res.innerHTML = html;
     });
   } catch (e) {
@@ -291,17 +323,17 @@ async function runEmail() {
   const btn = $('btnEmail');
   const res = $('emailResults');
   const text = $('emailInput').value.trim();
-  
+
   if (!text || text.length < 20) {
     res.innerHTML = `<div style="color:#f59e0b;">⚠️ Paste email content above (at least a few sentences)</div>`;
     res.classList.add('show');
     return;
   }
-  
+
   btn.disabled = true; btn.textContent = '⏳ Analyzing...';
   res.innerHTML = '<div class="loading">AI analyzing email</div>';
   res.classList.add('show');
-  
+
   chrome.runtime.sendMessage({
     type: 'ANALYZE_EMAIL',
     subject: text.split('\n')[0] || 'Unknown',
@@ -309,17 +341,17 @@ async function runEmail() {
     body: text
   }, resp => {
     btn.disabled = false; btn.textContent = '📧 Analyze Email';
-    
+
     if (!resp || resp.error) {
       res.innerHTML = `<div style="color:#ef4444;">❌ ${resp?.error || 'No response'}</div>`;
       return;
     }
-    
+
     let data = resp;
-    try { if (typeof resp === 'string') data = JSON.parse(resp); } catch(e) {}
-    
+    try { if (typeof resp === 'string') data = JSON.parse(resp); } catch (e) { }
+
     const cls = data.trustScore >= 70 ? 'green' : data.trustScore >= 40 ? 'yellow' : 'red';
-    
+
     let html = `<div class="score-row">Trust Score: <span class="score-badge score-${cls}">${data.trustScore || 0}/100</span></div>`;
     html += `<div class="verdict"><span class="score-badge score-${cls}" style="font-size:14px;padding:6px 14px;">${data.verdict || 'Unknown'}</span></div>`;
     if (data.humanExplanation) html += `<div class="summary-line">${escHtml(data.humanExplanation)}</div>`;
@@ -329,7 +361,7 @@ async function runEmail() {
       html += `</div>`;
     }
     html += `<div class="detail-row" style="margin-top:6px;"><strong>Sender Rep:</strong> ${data.senderReputation || 'Unknown'}</div>`;
-    
+
     res.innerHTML = html;
   });
 }
@@ -350,14 +382,14 @@ async function autoAccept() {
         }
       }
     });
-  } catch(e) { 
+  } catch (e) {
     log('Auto-accept failed:', e);
     const res = $('privacyResults');
     if (res) {
       res.innerHTML = `<div style="color:#f59e0b;">⚠️ ${e.message}</div>`;
-      res.classList.add('show'); 
+      res.classList.add('show');
+    }
   }
-}
 }
 
 // ─── Helpers ──────────────────────────────────────────────
@@ -366,15 +398,15 @@ async function getPageText(tab) {
   try {
     const resp = await chrome.tabs.sendMessage(tabId, { action: 'getPageContent' });
     if (resp?.content?.length > 50) return resp.content;
-  } catch(e) { log('Content script unavailable, using scripting API'); }
-  
+  } catch (e) { log('Content script unavailable, using scripting API'); }
+
   try {
     const results = await chrome.scripting.executeScript({
       target: { tabId },
       function: () => document.body.innerText.substring(0, 8000)
     });
     return results[0]?.result || '';
-  } catch(e) {
+  } catch (e) {
     log('Scripting API failed:', e);
     return '';
   }
@@ -382,7 +414,7 @@ async function getPageText(tab) {
 
 function escHtml(s) {
   if (!s) return '';
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 document.addEventListener("DOMContentLoaded", () => {

@@ -137,7 +137,7 @@ async function verifyPaymentGateway(url, pageText) {
   const SYSTEM = `You are Guardian AI, a cybersecurity expert specializing in payment fraud. 
 Be conversational, human, and protective. Return only valid JSON.`;
 
- const USER = `
+  const USER = `
 The following content is written in ${lang}.
 Please analyze it accordingly.
 
@@ -270,7 +270,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   const handle = async () => {
     try {
       console.log(`[Guardian] 📨 Got message:`, msg.type);
-      
+
       switch (msg.type) {
 
         case "ANALYZE_PRIVACY_POLICY":
@@ -308,7 +308,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           console.log(`[Guardian] 📄 Starting page scan...`);
           const key = await getApiKey();
           if (!key) {
-            return { 
+            return {
               error: "No API key found. Please set your Gemini API key in extension settings.",
               safetyScore: 0,
               category: "Unknown",
@@ -367,47 +367,85 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
         case "AUTO_SCAN_PAGE":
           console.log(`[Guardian] 🔄 Auto-scanning page:`, msg.title);
-          try {
-            // Analyze based on page type
-            let privacy = null, payment = null;
-            
-            if (msg.isPrivacy) {
+          let privacy = null;
+          let payment = null;
+          let general = null;
+
+          const errors = {};
+
+          // Privacy Analysis
+          if (msg.isPrivacy) {
+            try {
               privacy = await analyzePrivacyPolicy(msg.text, msg.url, msg.title);
-              if (privacy.riskScore > 60) await incrementStat("threatsFound");
+
+              if (privacy.riskScore > 60) {
+                await incrementStat("threatsFound");
+              }
+
+            } catch (err) {
+              console.error(`[Guardian] ❌ Privacy analysis failed:`, err.message);
+
+              errors.privacy = err.message || "Privacy analysis failed";
             }
-            
-            if (msg.isPayment) {
-              payment = await verifyPaymentGateway(msg.url, msg.text);
-              if (payment.score > 50) await incrementStat("threatsFound");
-            }
-            
-            // Always do general scan
-            const general = await scanPage(msg.url, msg.text, msg.title);
-            await incrementStat("pagesScanned");
-            
-            const summary = {
-              url: msg.url,
-              title: msg.title,
-              timestamp: Date.now(),
-              privacy: privacy,
-              payment: payment,
-              general: general,
-              isPrivacy: msg.isPrivacy,
-              isPayment: msg.isPayment,
-              overallScore: privacy ? (100 - privacy.riskScore) : (general?.safetyScore || 50)
-            };
-            
-            // Store current page scan
-            await new Promise(resolve => {
-              chrome.storage.local.set({ currentPageScan: summary }, resolve);
-            });
-            
-            console.log(`[Guardian] ✅ Auto-scan complete:`, summary);
-            return summary;
-          } catch (err) {
-            console.error(`[Guardian] ❌ Auto-scan error:`, err.message);
-            return { error: err.message };
           }
+
+          // Payment Verification
+          if (msg.isPayment) {
+            try {
+              payment = await verifyPaymentGateway(msg.url, msg.text);
+
+              if (payment.score > 50) {
+                await incrementStat("threatsFound");
+              }
+
+            } catch (err) {
+              console.error(`[Guardian] ❌ Payment verification failed:`, err.message);
+
+              errors.payment = err.message || "Payment verification failed";
+            }
+          }
+
+          // General Scan
+          try {
+            general = await scanPage(msg.url, msg.text, msg.title);
+
+            await incrementStat("pagesScanned");
+
+          } catch (err) {
+            console.error(`[Guardian] ❌ General scan failed:`, err.message);
+
+            errors.general = err.message || "General scan failed";
+          }
+
+          // Build summary
+          const summary = {
+            url: msg.url,
+            title: msg.title,
+            timestamp: Date.now(),
+
+            privacy,
+            payment,
+            general,
+
+            errors,
+
+            isPrivacy: msg.isPrivacy,
+            isPayment: msg.isPayment,
+
+            overallScore:
+              privacy
+                ? (100 - privacy.riskScore)
+                : (general?.safetyScore || 50)
+          };
+
+          // Store current page scan
+          await new Promise(resolve => {
+            chrome.storage.local.set({ currentPageScan: summary }, resolve);
+          });
+
+          console.log(`[Guardian] ✅ Auto-scan complete:`, summary);
+
+          return summary;
 
         case "DOMAIN_REP":
           return quickDomainRep(msg.url);
