@@ -320,7 +320,37 @@
 
     // ─── 8. Suspicious Link Highlighter ────────────────────────
     const SUSPICIOUS_TLDs = /\.(tk|ml|ga|cf|gq|xyz|top|click|link|work|loan|win|download|racing)$/i;
-    const PHISHING_WORDS = /paypal|amazon|apple|microsoft|google|bank|secure|login|verify|update|account/i;
+
+    // Strict brand → trusted domains mapping
+    // Only flag when link text mentions a brand but the URL doesn't match
+    const BRAND_DOMAINS = {
+        paypal:    ["paypal.com"],
+        amazon:    ["amazon.com", "amazon.co.uk", "amazon.ca", "amazon.de", "amazon.in"],
+        apple:     ["apple.com", "icloud.com"],
+        microsoft: ["microsoft.com", "live.com", "outlook.com", "office.com", "microsoftonline.com"],
+        google:    ["google.com", "accounts.google.com", "gmail.com", "youtube.com"],
+        netflix:   ["netflix.com"],
+        facebook:  ["facebook.com", "fb.com", "meta.com"],
+        instagram: ["instagram.com"],
+        twitter:   ["twitter.com", "x.com"],
+        linkedin:  ["linkedin.com"],
+        dropbox:   ["dropbox.com"],
+        chase:     ["chase.com"],
+        wellsfargo:["wellsfargo.com"],
+        bankofamerica: ["bankofamerica.com"],
+        citibank:  ["citibank.com", "citi.com"]
+    };
+
+    // Check if hostname is a trusted domain for a given brand
+    function isTrustedForBrand(hostname, brand) {
+        const trusted = BRAND_DOMAINS[brand] || [];
+        return trusted.some(d => hostname === d || hostname.endsWith("." + d));
+    }
+
+    // Detect punycode / homograph encoding in hostname (e.g. xn-- prefix)
+    function hasPunycodeHomograph(hostname) {
+        return hostname.split(".").some(label => label.startsWith("xn--"));
+    }
 
     function highlightSuspiciousLinks() {
         document.querySelectorAll("a[href]").forEach(a => {
@@ -328,18 +358,47 @@
             a.dataset.guardianChecked = "1";
             try {
                 const url = new URL(a.href);
-                const hostname = url.hostname;
+                const hostname = url.hostname.toLowerCase().replace(/^www\./, "");
                 let sus = false;
-                if (SUSPICIOUS_TLDs.test(hostname)) sus = true;
-                if (!a.href.startsWith("https") && a.href.startsWith("http")) sus = true;
-                // Homograph check: link text mentions company but URL is different
-                const linkText = a.textContent?.trim() || "";
-                if (PHISHING_WORDS.test(linkText) && !hostname.includes(linkText.split(/\s/)[0].toLowerCase())) sus = true;
+                let reason = "";
+
+                // 1. Suspicious TLD
+                if (SUSPICIOUS_TLDs.test(hostname)) {
+                    sus = true;
+                    reason = "Suspicious TLD";
+                }
+
+                // 2. Plain HTTP (not HTTPS)
+                if (!sus && a.href.startsWith("http:")) {
+                    sus = true;
+                    reason = "Unencrypted HTTP link";
+                }
+
+                // 3. Punycode / homograph domain
+                if (!sus && hasPunycodeHomograph(hostname)) {
+                    sus = true;
+                    reason = "Homograph/lookalike domain detected";
+                }
+
+                // 4. Brand mismatch: link text mentions a brand but URL doesn't match
+                // Only check the actual URL hostname — not the link text words
+                if (!sus) {
+                    const linkText = (a.textContent?.trim() || "").toLowerCase();
+                    for (const [brand, _] of Object.entries(BRAND_DOMAINS)) {
+                        // Link text must contain the brand name as a whole word
+                        const brandRegex = new RegExp(`\\b${brand}\\b`);
+                        if (brandRegex.test(linkText) && !isTrustedForBrand(hostname, brand)) {
+                            sus = true;
+                            reason = `Link claims to be ${brand} but points to ${hostname}`;
+                            break;
+                        }
+                    }
+                }
 
                 if (sus) {
                     a.style.outline = "2px solid #f59e0b";
                     a.style.borderRadius = "2px";
-                    a.title = "⚠️ Guardian AI: Suspicious link – " + hostname;
+                    a.title = `⚠️ Guardian AI: Suspicious link – ${reason} (${hostname})`;
                 }
             } catch (_) { }
         });
