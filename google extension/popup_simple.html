@@ -99,6 +99,20 @@ input:checked + .slider:before { transform: translateX(18px); background-color: 
         <div class="stat"><div class="stat-label">📄 Scanned</div><div class="stat-val" id="sPages">0</div></div>
     </div>
 
+    <div class="summary-card" style="padding-bottom:20px;">
+        <h3>📈 WEEKLY THREATS</h3>
+        <div style="position:relative;height:150px;width:100%;">
+          <canvas id="weeklyChart"></canvas>
+        </div>
+    </div>
+    
+    <div class="summary-card" style="padding-bottom:20px;">
+        <h3>🔍 ACTIONS BREAKDOWN</h3>
+        <div style="position:relative;height:180px;width:100%;">
+          <canvas id="actionsPieChart"></canvas>
+        </div>
+    </div>
+
     <button class="btn-sm btn"  id="scanBtn">🔍 Scan This Page Now</button>
     <button class="btn-sm btn" id="refreshBtn">🔄 Refresh</button>
 </div>
@@ -152,6 +166,7 @@ input:checked + .slider:before { transform: translateX(18px); background-color: 
     <button class="btn btn-sm" onclick="resetStats()">🔄 Reset All Stats</button>
 </div>
 
+<script src="chart.js"></script>
 <script src="popup_simple.js"></script>
 </body>
 </html>
