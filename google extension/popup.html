@@ -54,23 +54,36 @@
       --text-dim: rgba(30, 41, 59, 0.4);
     }
 
+    html,
     body {
-      width: 440px;
-      min-height: 560px;
+      height: 100%;
+      width: 100%;
+      margin: 0;
+    }
+
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
       background: var(--bg0);
       color: var(--text);
       font-family: 'Inter', -apple-system, sans-serif;
-      font-size: 14px;
-      line-height: 1.5;
-      overflow: hidden;
     }
 
-    /* ── Scrollable Body ──────────────── */
     .popup-body {
+      width: 100%;
+      max-width: 440px;
       max-height: 620px;
       overflow-y: auto;
-      scrollbar-width: thin;
-      scrollbar-color: var(--indigo) transparent;
+      padding: 20px;
+      background: var(--bg1);
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
     }
 
     .popup-body::-webkit-scrollbar {
@@ -962,84 +975,85 @@
 
 <body>
   <!-- ═══════════════ SETUP SCREEN ═══════════════ -->
-  <div id="setup-screen">
-    <div class="setup-icon">🛡️</div>
-    <div class="setup-title">Welcome to<br><span
-        style="background:linear-gradient(135deg,#6366f1,#06b6d4);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">Guardian
-        AI</span></div>
-    <p class="setup-desc">Your intelligent security &amp; privacy assistant powered by <strong
-        style="color:#818cf8">Google Gemini AI</strong>. Enter your free Gemini API key to activate full AI features.
-    </p>
-    <div class="field-group" style="text-align:left">
-      <label class="field-label">Google Gemini API Key</label>
-      <input id="setup-key" type="password" class="field-input" placeholder="AIzaSy…" autocomplete="off">
+  <div class="popup-body">
+    <div id="setup-screen">
+      <div class="setup-icon">🛡️</div>
+      <div class="setup-title">Welcome to<br><span
+          style="background:linear-gradient(135deg,#6366f1,#06b6d4);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">Guardian
+          AI</span></div>
+      <p class="setup-desc">Your intelligent security &amp; privacy assistant powered by <strong
+          style="color:#818cf8">Google Gemini AI</strong>. Enter your free Gemini API key to activate full AI features.
+      </p>
+      <div class="field-group" style="text-align:left">
+        <label class="field-label">Google Gemini API Key</label>
+        <input id="setup-key" type="password" class="field-input" placeholder="AIzaSy…" autocomplete="off">
+      </div>
+      <button id="setup-save" class="btn btn-primary" style="margin-bottom:12px">
+        <span>🚀</span> Activate Guardian AI
+      </button>
+      <button id="setup-skip" class="btn btn-secondary">
+        Continue without AI features
+      </button>
+      <p class="text-small mt-8">🔒 Your key is stored locally and never sent to our servers. Get a free key at <span
+          style="color:#818cf8">aistudio.google.com</span></p>
     </div>
-    <button id="setup-save" class="btn btn-primary" style="margin-bottom:12px">
-      <span>🚀</span> Activate Guardian AI
-    </button>
-    <button id="setup-skip" class="btn btn-secondary">
-      Continue without AI features
-    </button>
-    <p class="text-small mt-8">🔒 Your key is stored locally and never sent to our servers. Get a free key at <span
-        style="color:#818cf8">aistudio.google.com</span></p>
-  </div>
 
-  <!-- ═══════════════ MAIN APP ═══════════════ -->
-  <div id="main-app" class="hidden">
-    <!-- Header -->
-    <div class="header">
-      <div class="header-row">
-        <div class="logo-group">
-          <div class="logo-icon">🛡️</div>
-          <div>
-            <div class="logo-text">Guardian AI</div>
-            <div class="logo-sub" id="header-status">Protecting your privacy</div>
+    <!-- ═══════════════ MAIN APP ═══════════════ -->
+    <div id="main-app" class="hidden">
+      <!-- Header -->
+      <div class="header">
+        <div class="header-row">
+          <div class="logo-group">
+            <div class="logo-icon">🛡️</div>
+            <div>
+              <div class="logo-text">Guardian AI</div>
+              <div class="logo-sub" id="header-status">Protecting your privacy</div>
+            </div>
+          </div>
+          <div class="header-actions">
+            <button class="icon-btn" id="toggle-theme" title="Toggle theme">🌙</button>
+            <button class="icon-btn" id="go-settings" title="Settings">⚙️</button>
           </div>
         </div>
-        <div class="header-actions">
-          <button class="icon-btn" id="toggle-theme" title="Toggle theme">🌙</button>
-          <button class="icon-btn" id="go-settings" title="Settings">⚙️</button>
+        <div class="page-pill">
+          <div class="page-dot" id="page-dot"></div>
+          <span class="page-url" id="page-url-display">Loading…</span>
+          <span class="page-badge" id="page-badge">—</span>
         </div>
       </div>
-      <div class="page-pill">
-        <div class="page-dot" id="page-dot"></div>
-        <span class="page-url" id="page-url-display">Loading…</span>
-        <span class="page-badge" id="page-badge">—</span>
+
+      <!-- Nav Tabs -->
+      <div class="nav-tabs" id="nav-tabs">
+        <button class="nav-tab active" data-tab="dashboard">
+          <div class="nav-tab-inner">
+            <span class="tab-icon">📊</span>
+            <span class="badge hidden" id="threat-badge">0</span>
+          </div>
+          Dashboard
+        </button>
+        <button class="nav-tab" data-tab="scanner">
+          <span class="tab-icon">🔍</span>
+          Scanner
+        </button>
+        <button class="nav-tab" data-tab="privacy">
+          <span class="tab-icon">📋</span>
+          Privacy
+        </button>
+        <button class="nav-tab" data-tab="payment">
+          <span class="tab-icon">💳</span>
+          Payment
+        </button>
+        <button class="nav-tab" data-tab="email">
+          <span class="tab-icon">📧</span>
+          Email
+        </button>
+        <button class="nav-tab" data-tab="settings">
+          <span class="tab-icon">⚙️</span>
+          Settings
+        </button>
       </div>
-    </div>
 
-    <!-- Nav Tabs -->
-    <div class="nav-tabs" id="nav-tabs">
-      <button class="nav-tab active" data-tab="dashboard">
-        <div class="nav-tab-inner">
-          <span class="tab-icon">📊</span>
-          <span class="badge hidden" id="threat-badge">0</span>
-        </div>
-        Dashboard
-      </button>
-      <button class="nav-tab" data-tab="scanner">
-        <span class="tab-icon">🔍</span>
-        Scanner
-      </button>
-      <button class="nav-tab" data-tab="privacy">
-        <span class="tab-icon">📋</span>
-        Privacy
-      </button>
-      <button class="nav-tab" data-tab="payment">
-        <span class="tab-icon">💳</span>
-        Payment
-      </button>
-      <button class="nav-tab" data-tab="email">
-        <span class="tab-icon">📧</span>
-        Email
-      </button>
-      <button class="nav-tab" data-tab="settings">
-        <span class="tab-icon">⚙️</span>
-        Settings
-      </button>
-    </div>
-
-    <div class="popup-body">
+      <!-- <div class="popup-body"> -->
 
       <!-- ─── DASHBOARD TAB ─── -->
       <div class="panel active" id="tab-dashboard">
@@ -1127,13 +1141,15 @@
           <div class="card-title">🕒 Last Scan Summary</div>
           <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px;">
             <div style="font-weight:700;"><span id="last-scan-title">No scan yet</span></div>
-            <span class="tag tag-green" id="last-scan-badge" style="background:rgba(16,185,129,.12);color:#10b981;border:1px solid rgba(16,185,129,.25);">Safe</span>
+            <span class="tag tag-green" id="last-scan-badge"
+              style="background:rgba(16,185,129,.12);color:#10b981;border:1px solid rgba(16,185,129,.25);">Safe</span>
           </div>
           <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;" id="last-scan-time">—</div>
-          <div style="font-size:13px;color:var(--text-dim);line-height:1.5;" id="last-scan-summary">Your most recent page scan will appear here after you run an AI scan.</div>
+          <div style="font-size:13px;color:var(--text-dim);line-height:1.5;" id="last-scan-summary">Your most recent
+            page scan will appear here after you run an AI scan.</div>
         </div>
 
-          <span>🧠</span> Run Full AI Scan
+        <span>🧠</span> Run Full AI Scan
         </button>
         <button class="btn btn-secondary mt-8" id="highlight-links-btn">
           <span>🔗</span> Highlight Suspicious Links
